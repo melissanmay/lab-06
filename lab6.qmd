@@ -1,6 +1,10 @@
 ---
-title: "lab6"
+title: "Lab 6: Machine Learning in Hydrology"
+author: "Melissa May"
+date: "2025-04-04"
 format: html
+execute: 
+  echo: true
 ---
 
 ## Lab Set Up
