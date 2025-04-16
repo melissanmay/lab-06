@@ -1,5 +1,229 @@
 ---
-title: "hyperparameter-tuning"
+title: "Lab 8: Machine Learning Tuning"
+author: "Melissa May"
+date: "2025-04-11"
 format: html
+execute: 
+  echo: true
 ---
 
+# Libraries
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(readr)
+library(purrr)
+library(skimr)
+library(visdat)
+library(ggpubr)
+library(glue)
+library(powerjoin)
+```
+
+# Data Import/Tidy/Transform
+
+## Read in the data
+
+```{r}
+root  <- 'https://gdex.ucar.edu/dataset/camels/file'
+
+download.file('https://gdex.ucar.edu/dataset/camels/file/camels_attributes_v2.0.pdf', 
+              'data/camels_attributes_v2.0.pdf', mode = "wb")
+
+types <- c("clim", "geol", "soil", "topo", "vege", "hydro")
+
+remote_files  <- glue('{root}/camels_{types}.txt')
+
+local_files   <- glue('data/camels_{types}.txt')
+
+walk2(remote_files, local_files, download.file, quiet = TRUE)
+
+camels <- map(local_files, read_delim, show_col_types = FALSE) 
+
+camels <- power_full_join(camels ,by = 'gauge_id')
+```
+
+## Data cleaning
+
+```{r}
+vis_dat(camels)
+```
+
+```{r}
+skim(camels)
+```
+
+```{r}
+camels_clean <- camels %>%
+  drop_na(q_mean) %>%
+  select(gauge_id, gauge_lat, gauge_lon, everything())
+
+ggpubr::ggdensity(camels_clean$q_mean,
+                  fill = "mediumaquamarine",
+                  rug = TRUE,
+                  xlab = "Mean Streamflow (q_mean)")
+```
+
+# Data Splitting
+
+## Set a seed
+
+```{r}
+set.seed(123)
+```
+
+## Split the data 80%/20%
+
+```{r}
+camels_split <- initial_split(camels_clean, prop = 0.8)
+```
+
+## Extract the training and testing sets
+
+```{r}
+camels_train <- training(camels_split)
+
+camels_test <- testing(camels_split)
+```
+
+# Feature Engineering
+
+## Create a recipe object
+
+```{r}
+camels_recipe <- recipe(q_mean ~ ., data = camels_train) %>%
+  step_rm(gauge_lat, gauge_lon) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_unknown(all_nominal_predictors()) %>%
+  step_other(all_nominal_predictors(), threshold = 0.01) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors())
+```
+
+# Resampling and Model Testing
+
+## Build resamples
+
+```{r}
+folds <- vfold_cv(camels_train, v = 10)
+```
+
+## Build 3 candidate models
+
+```{r}
+lin_reg_model <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+
+rf_model <- rand_forest(mtry = 5, trees = 500) %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+xgb_model <- boost_tree(trees = 500, learn_rate = 0.1) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+```
+
+## Test the models
+
+```{r}
+models <- list(
+  linear = lin_reg_model,
+  random_forest = rf_model,
+  xgboost = xgb_model
+)
+
+wf_set <- workflow_set(
+  preproc = list(camels_recipe),
+  models = models
+)
+
+set.seed(123)
+wf_results <- wf_set %>%
+  workflow_map("fit_resamples", resamples = folds)
+```
+
+```{r}
+autoplot(wf_results)
+```
+
+## Model selection
+
+Based on the visualized metrics, the model I think will perform best is the XGBoost model. While both the boost_tree and linear_reg models performed very well, yielding low RMSE values and high R-squared values, the boost_tree model performed slightly better compared to the linear_reg model. I feel confident choosing the XGBoost model as opposed to the other two, because it has the lowest RMSE value and the highest R-squared value, meaning the confidence in its predictions is relatively high.
+
+The model I selected, the XGBoost model, is a boosted tree model that used the "xgboost" engine and the "regression" mode. I think this model is performing especially well for this problem because boosted tree models work strongly with nonlinear data that simpler models can't capture as well. Given the presence of varying predictors and complex hydrological patterns, the boosted tree model is likely capturing these trends better than the other two models.
+
+# Model Tuning
+
+## Build a model for your chosen specification
+
+```{r}
+library(parsnip)
+library(tune)
+
+boost_tree_tuned <- boost_tree(
+  mode = "regression",
+  engine = "xgboost",
+  trees = tune(),
+  tree_depth = tune(),
+  learn_rate = tune()
+)
+```
+
+## Create a workflow
+
+```{r}
+library(workflows)
+
+wf_tune <- workflow() %>%
+  add_model(boost_tree_tuned) %>%
+  add_recipe(camels_recipe)
+```
+
+## Check the tunable values/ranges
+
+```{r}
+library(dials)
+
+dials <- extract_parameter_set_dials(wf_tune)
+
+dials$object
+```
+
+## Define the search space
+
+```{r}
+library(finetune)
+
+grid <- grid_latin_hypercube(
+  dials,
+  size = 25
+)
+
+head(grid)
+```
+
+## Tune the model
+
+```{r}
+library(tune)
+library(yardstick)
+library(ggplot2)
+
+model_params <- tune_grid(
+  wf_tune,
+  resamples = folds,
+  grid = grid,
+  metrics = metric_set(rmse, rsq, mae),
+  control = control_grid(save_pred = TRUE)
+)
+```
+
+```{r}
+autoplot(model_params)
+```
+
+Describe what you see.
+
+## Check the skill of the tuned model
