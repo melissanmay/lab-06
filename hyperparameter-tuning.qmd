@@ -73,7 +73,7 @@ ggpubr::ggdensity(camels_clean$q_mean,
 set.seed(123)
 ```
 
-## Split the data 80%/20%
+## Split the data 80/20%
 
 ```{r}
 camels_split <- initial_split(camels_clean, prop = 0.8)
@@ -224,6 +224,172 @@ model_params <- tune_grid(
 autoplot(model_params)
 ```
 
-Describe what you see.
+Each row in the plot corresponds to a performance metric (mae, rmse, and rsq). Mean Absolute Error (MAE) quantifies the difference between predicted and actual values, and so lower MAE values mean the predictors are closer to the actual values. Root Mean Square Error (RMSE) is also a value quantifying the predictor's deviation from the actual observed values, and lower RMSE values are also indicative of better model performance. Finally, R-squared values quantify the proportion of variance in the dependent variable that can be explained by the independent variable. Thus, higher values for the r-squared (particularly R \> 0.9), are indicative of an accurate model.
+
+Each column is one of the hyperparameters we tuned, including the number of boosting iterations, the log-scale learning rate, and the depth of individual trees.
+
+**\# Trees:**
+
+-   Performance stays relatively stable across different numbers of trees, but there's a bit more variation for MAE and RMSE.
+
+-   No strong improvement after a certain number of trees.
+
+**Learning Rate (log-10):**
+
+-   Extremely small learning rates (e.g., -2.5 to -3.0) lead to worse performance, especially for MAE and RMSE.
+
+-   Mid-range values (e.g., -1.5 to -1) seem to give the best performance overall.
+
+**Tree Depth:**
+
+-   There's a clear spike in error around 9+ for MAE and RMSE.
+
+-   Lower tree depths seem to consistently perform better, especially when paired with a good learning rate.
 
 ## Check the skill of the tuned model
+
+### Collect metrics:
+
+```{r}
+collect_metrics(model_params)
+```
+
+```{r}
+collect_metrics(model_params) %>%
+  filter(.metric == "mae") %>%
+  arrange(mean) %>%
+  slice_head(n = 5)
+```
+
+Using the *collect_metrics* function, we can generate a tibble showing the top 5 hyperparameter combinations ranked by lowest MAE. For each of the 5, their MAE is between 0.083 and 0.088. The tibble also shows the hyperparameters that combined to have the lowest MAE, including trees, tree depth, learn rate, and more.
+
+### Show best, by MAE:
+
+```{r}
+show_best(model_params, metric = "mae")
+```
+
+Using the *show_best* function reveals the best 5 hyperparameter tests based on their MAE. These are tests with number of trees ranging from 338 to 1727, tree depths ranging from 3 to 6, and learn rates ranging from 0.004 to 0.08. They are all connected by their MAE value of approximately 0.085 (0.083-0.087).
+
+### Select and save best:
+
+```{r}
+hp_best <- select_best(model_params, metric = "mae")
+```
+
+## Finalize the model
+
+```{r}
+final_wf <- finalize_workflow(
+  wf_tune,
+  hp_best
+)
+
+final_fit <- last_fit(final_wf, split = camels_split)
+```
+
+## Final Model Verification
+
+### Use last_fit
+
+```{r}
+final_fit <- last_fit(
+  final_wf,
+  camels_split
+)
+```
+
+### Use collect_metrics
+
+```{r}
+collect_metrics(final_fit)
+```
+
+### Interpretation
+
+**RMSE = 0.1462**
+
+This means that, on average, the predictions are off by about 0.15 units. In regression, a lower RMSE indicates better model performance, so this is a low RMSE overall.
+
+**RSQ = 0.9893**
+
+This means that about 98.93% of the variance in the actual test data is explained by the model. This is extremely high, which suggests the model is doing a great job of predicting the data.
+
+**Compared to training data**
+
+The best training MAE's were around the 0.004 - 0.08 range, depending on hyperparameters. If the training RMSE was significantly lower than 0.146, the model may be slightly overfitting, but with an R-squared value of 0.989, it's likely still performing very well overall.
+
+### Use collect_predictions
+
+```{r}
+final_fit <- last_fit(final_wf, split = camels_split)
+
+final_preds <- collect_predictions(final_fit)
+```
+
+### Create scatter plot
+
+```{r}
+ggplot(final_preds, aes(x = .pred, y = q_mean)) +
+  geom_point(aes(color = .pred), alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "midnightblue") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "darkred") +
+  scale_color_gradient(low = "plum", high = "slateblue4") +
+  labs(
+    title = "Predicted vs Actual Values",
+    x = "Predicted",
+    y = "Actual"
+  ) +
+  theme_minimal()
+```
+
+## Building a Map
+
+### Use fit
+
+```{r}
+final_fit <- fit(final_wf, data = camels_clean)
+```
+
+### Use augment
+
+```{r}
+final_aug <- augment(final_fit, new_data = camels_clean)
+
+print(final_aug)
+```
+
+### Use mutate
+
+```{r}
+final_aug <- final_aug %>%
+  mutate(residual = (q_mean - .pred)^2)
+```
+
+### Create a map of predictions
+
+```{r}
+map_pred <- ggplot(final_aug, aes(x = gauge_lon, y = gauge_lat)) +
+  geom_point(aes(color = .pred), size = 1.5, alpha = 0.7) +
+  scale_color_gradient(low = "plum1", high = "slateblue4") +
+  labs(title = "Predicted Streamflow", color = "Prediction") +
+  theme_minimal()
+```
+
+### Create a map of residuals
+
+```{r}
+map_resid <- ggplot(final_aug, aes(x = gauge_lon, y = gauge_lat)) +
+  geom_point(aes(color = residual), size = 1.5, alpha = 0.7) +
+  scale_color_gradient(low = "antiquewhite", high = "seagreen4") +
+  labs(title = "Squared Residuals", color = "Residual") +
+  theme_minimal()
+```
+
+### Combine the two maps
+
+```{r}
+library(patchwork)
+
+map_pred + map_resid
+```

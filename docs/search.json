@@ -1,0 +1,366 @@
+[
+  {
+    "objectID": "hyperparameter-tuning.html",
+    "href": "hyperparameter-tuning.html",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "",
+    "text": "library(tidyverse)\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4     ✔ readr     2.1.5\n✔ forcats   1.0.0     ✔ stringr   1.5.1\n✔ ggplot2   3.5.1     ✔ tibble    3.2.1\n✔ lubridate 1.9.4     ✔ tidyr     1.3.1\n✔ purrr     1.0.2     \n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors\n\nlibrary(tidymodels)\n\n── Attaching packages ────────────────────────────────────── tidymodels 1.2.0 ──\n✔ broom        1.0.7     ✔ rsample      1.2.1\n✔ dials        1.3.0     ✔ tune         1.2.1\n✔ infer        1.0.7     ✔ workflows    1.1.4\n✔ modeldata    1.4.0     ✔ workflowsets 1.1.0\n✔ parsnip      1.2.1     ✔ yardstick    1.3.1\n✔ recipes      1.1.0     \n── Conflicts ───────────────────────────────────────── tidymodels_conflicts() ──\n✖ scales::discard() masks purrr::discard()\n✖ dplyr::filter()   masks stats::filter()\n✖ recipes::fixed()  masks stringr::fixed()\n✖ dplyr::lag()      masks stats::lag()\n✖ yardstick::spec() masks readr::spec()\n✖ recipes::step()   masks stats::step()\n• Search for functions across packages at https://www.tidymodels.org/find/\n\nlibrary(readr)\nlibrary(purrr)\nlibrary(skimr)\n\nWarning: package 'skimr' was built under R version 4.4.3\n\nlibrary(visdat)\n\nWarning: package 'visdat' was built under R version 4.4.3\n\nlibrary(ggpubr)\n\nWarning: package 'ggpubr' was built under R version 4.4.3\n\nlibrary(glue)\nlibrary(powerjoin)\n\nWarning: package 'powerjoin' was built under R version 4.4.3"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#read-in-the-data",
+    "href": "hyperparameter-tuning.html#read-in-the-data",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Read in the data",
+    "text": "Read in the data\n\nroot  &lt;- 'https://gdex.ucar.edu/dataset/camels/file'\n\ndownload.file('https://gdex.ucar.edu/dataset/camels/file/camels_attributes_v2.0.pdf', \n              'data/camels_attributes_v2.0.pdf', mode = \"wb\")\n\ntypes &lt;- c(\"clim\", \"geol\", \"soil\", \"topo\", \"vege\", \"hydro\")\n\nremote_files  &lt;- glue('{root}/camels_{types}.txt')\n\nlocal_files   &lt;- glue('data/camels_{types}.txt')\n\nwalk2(remote_files, local_files, download.file, quiet = TRUE)\n\ncamels &lt;- map(local_files, read_delim, show_col_types = FALSE) \n\ncamels &lt;- power_full_join(camels ,by = 'gauge_id')"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#data-cleaning",
+    "href": "hyperparameter-tuning.html#data-cleaning",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Data cleaning",
+    "text": "Data cleaning\n\nvis_dat(camels)\n\n\n\n\n\n\n\n\n\nskim(camels)\n\n\nData summary\n\n\nName\ncamels\n\n\nNumber of rows\n671\n\n\nNumber of columns\n58\n\n\n_______________________\n\n\n\nColumn type frequency:\n\n\n\ncharacter\n6\n\n\nnumeric\n52\n\n\n________________________\n\n\n\nGroup variables\nNone\n\n\n\nVariable type: character\n\n\n\n\n\n\n\n\n\n\n\n\n\nskim_variable\nn_missing\ncomplete_rate\nmin\nmax\nempty\nn_unique\nwhitespace\n\n\n\n\ngauge_id\n0\n1.00\n8\n8\n0\n671\n0\n\n\nhigh_prec_timing\n0\n1.00\n3\n3\n0\n4\n0\n\n\nlow_prec_timing\n0\n1.00\n3\n3\n0\n4\n0\n\n\ngeol_1st_class\n0\n1.00\n12\n31\n0\n12\n0\n\n\ngeol_2nd_class\n138\n0.79\n12\n31\n0\n13\n0\n\n\ndom_land_cover\n0\n1.00\n12\n38\n0\n12\n0\n\n\n\nVariable type: numeric\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nskim_variable\nn_missing\ncomplete_rate\nmean\nsd\np0\np25\np50\np75\np100\nhist\n\n\n\n\np_mean\n0\n1.00\n3.26\n1.41\n0.64\n2.37\n3.23\n3.78\n8.94\n▃▇▂▁▁\n\n\npet_mean\n0\n1.00\n2.79\n0.55\n1.90\n2.34\n2.69\n3.15\n4.74\n▇▇▅▂▁\n\n\np_seasonality\n0\n1.00\n-0.04\n0.53\n-1.44\n-0.26\n0.08\n0.22\n0.92\n▁▂▃▇▂\n\n\nfrac_snow\n0\n1.00\n0.18\n0.20\n0.00\n0.04\n0.10\n0.22\n0.91\n▇▂▁▁▁\n\n\naridity\n0\n1.00\n1.06\n0.62\n0.22\n0.70\n0.86\n1.27\n5.21\n▇▂▁▁▁\n\n\nhigh_prec_freq\n0\n1.00\n20.93\n4.55\n7.90\n18.50\n22.00\n24.23\n32.70\n▂▃▇▇▁\n\n\nhigh_prec_dur\n0\n1.00\n1.35\n0.19\n1.08\n1.21\n1.28\n1.44\n2.09\n▇▅▂▁▁\n\n\nlow_prec_freq\n0\n1.00\n254.65\n35.12\n169.90\n232.70\n255.85\n278.92\n348.70\n▂▅▇▅▁\n\n\nlow_prec_dur\n0\n1.00\n5.95\n3.20\n2.79\n4.24\n4.95\n6.70\n36.51\n▇▁▁▁▁\n\n\nglim_1st_class_frac\n0\n1.00\n0.79\n0.20\n0.30\n0.61\n0.83\n1.00\n1.00\n▁▃▃▃▇\n\n\nglim_2nd_class_frac\n0\n1.00\n0.16\n0.14\n0.00\n0.00\n0.14\n0.27\n0.49\n▇▃▃▂▁\n\n\ncarbonate_rocks_frac\n0\n1.00\n0.12\n0.26\n0.00\n0.00\n0.00\n0.04\n1.00\n▇▁▁▁▁\n\n\ngeol_porostiy\n3\n1.00\n0.13\n0.07\n0.01\n0.07\n0.13\n0.19\n0.28\n▇▆▇▇▂\n\n\ngeol_permeability\n0\n1.00\n-13.89\n1.18\n-16.50\n-14.77\n-13.96\n-13.00\n-10.90\n▂▅▇▅▂\n\n\nsoil_depth_pelletier\n0\n1.00\n10.87\n16.24\n0.27\n1.00\n1.23\n12.89\n50.00\n▇▁▁▁▁\n\n\nsoil_depth_statsgo\n0\n1.00\n1.29\n0.27\n0.40\n1.11\n1.46\n1.50\n1.50\n▁▁▂▂▇\n\n\nsoil_porosity\n0\n1.00\n0.44\n0.02\n0.37\n0.43\n0.44\n0.46\n0.68\n▃▇▁▁▁\n\n\nsoil_conductivity\n0\n1.00\n1.74\n1.52\n0.45\n0.93\n1.35\n1.93\n13.96\n▇▁▁▁▁\n\n\nmax_water_content\n0\n1.00\n0.53\n0.15\n0.09\n0.43\n0.56\n0.64\n1.05\n▁▅▇▃▁\n\n\nsand_frac\n0\n1.00\n36.47\n15.63\n8.18\n25.44\n35.27\n44.46\n91.98\n▅▇▅▁▁\n\n\nsilt_frac\n0\n1.00\n33.86\n13.25\n2.99\n23.95\n34.06\n43.64\n67.77\n▂▆▇▆▁\n\n\nclay_frac\n0\n1.00\n19.89\n9.32\n1.85\n14.00\n18.66\n25.42\n50.35\n▃▇▅▂▁\n\n\nwater_frac\n0\n1.00\n0.10\n0.94\n0.00\n0.00\n0.00\n0.00\n19.35\n▇▁▁▁▁\n\n\norganic_frac\n0\n1.00\n0.59\n3.84\n0.00\n0.00\n0.00\n0.00\n57.86\n▇▁▁▁▁\n\n\nother_frac\n0\n1.00\n9.82\n16.83\n0.00\n0.00\n1.31\n11.74\n99.38\n▇▁▁▁▁\n\n\ngauge_lat\n0\n1.00\n39.24\n5.21\n27.05\n35.70\n39.25\n43.21\n48.82\n▂▃▇▆▅\n\n\ngauge_lon\n0\n1.00\n-95.79\n16.21\n-124.39\n-110.41\n-92.78\n-81.77\n-67.94\n▆▃▇▇▅\n\n\nelev_mean\n0\n1.00\n759.42\n786.00\n10.21\n249.67\n462.72\n928.88\n3571.18\n▇▂▁▁▁\n\n\nslope_mean\n0\n1.00\n46.20\n47.12\n0.82\n7.43\n28.80\n73.17\n255.69\n▇▂▂▁▁\n\n\narea_gages2\n0\n1.00\n792.62\n1701.95\n4.03\n122.28\n329.68\n794.30\n25791.04\n▇▁▁▁▁\n\n\narea_geospa_fabric\n0\n1.00\n808.08\n1709.85\n4.10\n127.98\n340.70\n804.50\n25817.78\n▇▁▁▁▁\n\n\nfrac_forest\n0\n1.00\n0.64\n0.37\n0.00\n0.28\n0.81\n0.97\n1.00\n▃▁▁▂▇\n\n\nlai_max\n0\n1.00\n3.22\n1.52\n0.37\n1.81\n3.37\n4.70\n5.58\n▅▆▃▅▇\n\n\nlai_diff\n0\n1.00\n2.45\n1.33\n0.15\n1.20\n2.34\n3.76\n4.83\n▇▇▇▆▇\n\n\ngvf_max\n0\n1.00\n0.72\n0.17\n0.18\n0.61\n0.78\n0.86\n0.92\n▁▁▂▃▇\n\n\ngvf_diff\n0\n1.00\n0.32\n0.15\n0.03\n0.19\n0.32\n0.46\n0.65\n▃▇▅▇▁\n\n\ndom_land_cover_frac\n0\n1.00\n0.81\n0.18\n0.31\n0.65\n0.86\n1.00\n1.00\n▁▂▃▃▇\n\n\nroot_depth_50\n24\n0.96\n0.18\n0.03\n0.12\n0.17\n0.18\n0.19\n0.25\n▃▃▇▂▂\n\n\nroot_depth_99\n24\n0.96\n1.83\n0.30\n1.50\n1.52\n1.80\n2.00\n3.10\n▇▃▂▁▁\n\n\nq_mean\n1\n1.00\n1.49\n1.54\n0.00\n0.63\n1.13\n1.75\n9.69\n▇▁▁▁▁\n\n\nrunoff_ratio\n1\n1.00\n0.39\n0.23\n0.00\n0.24\n0.35\n0.51\n1.36\n▆▇▂▁▁\n\n\nslope_fdc\n1\n1.00\n1.24\n0.51\n0.00\n0.90\n1.28\n1.63\n2.50\n▂▅▇▇▁\n\n\nbaseflow_index\n0\n1.00\n0.49\n0.16\n0.01\n0.40\n0.50\n0.60\n0.98\n▁▃▇▅▁\n\n\nstream_elas\n1\n1.00\n1.83\n0.78\n-0.64\n1.32\n1.70\n2.23\n6.24\n▁▇▃▁▁\n\n\nq5\n1\n1.00\n0.17\n0.27\n0.00\n0.01\n0.08\n0.22\n2.42\n▇▁▁▁▁\n\n\nq95\n1\n1.00\n5.06\n4.94\n0.00\n2.07\n3.77\n6.29\n31.82\n▇▂▁▁▁\n\n\nhigh_q_freq\n1\n1.00\n25.74\n29.07\n0.00\n6.41\n15.10\n35.79\n172.80\n▇▂▁▁▁\n\n\nhigh_q_dur\n1\n1.00\n6.91\n10.07\n0.00\n1.82\n2.85\n7.55\n92.56\n▇▁▁▁▁\n\n\nlow_q_freq\n1\n1.00\n107.62\n82.24\n0.00\n37.44\n96.00\n162.14\n356.80\n▇▆▅▂▁\n\n\nlow_q_dur\n1\n1.00\n22.28\n21.66\n0.00\n10.00\n15.52\n26.91\n209.88\n▇▁▁▁▁\n\n\nzero_q_freq\n1\n1.00\n0.03\n0.11\n0.00\n0.00\n0.00\n0.00\n0.97\n▇▁▁▁▁\n\n\nhfd_mean\n1\n1.00\n182.52\n33.53\n112.25\n160.16\n173.77\n204.05\n287.75\n▂▇▃▂▁\n\n\n\n\n\n\ncamels_clean &lt;- camels %&gt;%\n  drop_na(q_mean) %&gt;%\n  select(gauge_id, gauge_lat, gauge_lon, everything())\n\nggpubr::ggdensity(camels_clean$q_mean,\n                  fill = \"mediumaquamarine\",\n                  rug = TRUE,\n                  xlab = \"Mean Streamflow (q_mean)\")"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#set-a-seed",
+    "href": "hyperparameter-tuning.html#set-a-seed",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Set a seed",
+    "text": "Set a seed\n\nset.seed(123)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#split-the-data-8020",
+    "href": "hyperparameter-tuning.html#split-the-data-8020",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Split the data 80/20%",
+    "text": "Split the data 80/20%\n\ncamels_split &lt;- initial_split(camels_clean, prop = 0.8)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#extract-the-training-and-testing-sets",
+    "href": "hyperparameter-tuning.html#extract-the-training-and-testing-sets",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Extract the training and testing sets",
+    "text": "Extract the training and testing sets\n\ncamels_train &lt;- training(camels_split)\n\ncamels_test &lt;- testing(camels_split)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#create-a-recipe-object",
+    "href": "hyperparameter-tuning.html#create-a-recipe-object",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Create a recipe object",
+    "text": "Create a recipe object\n\ncamels_recipe &lt;- recipe(q_mean ~ ., data = camels_train) %&gt;%\n  step_rm(gauge_lat, gauge_lon) %&gt;%\n  step_novel(all_nominal_predictors()) %&gt;%\n  step_unknown(all_nominal_predictors()) %&gt;%\n  step_other(all_nominal_predictors(), threshold = 0.01) %&gt;%\n  step_dummy(all_nominal_predictors()) %&gt;%\n  step_zv(all_predictors())"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#build-resamples",
+    "href": "hyperparameter-tuning.html#build-resamples",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Build resamples",
+    "text": "Build resamples\n\nfolds &lt;- vfold_cv(camels_train, v = 10)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#build-3-candidate-models",
+    "href": "hyperparameter-tuning.html#build-3-candidate-models",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Build 3 candidate models",
+    "text": "Build 3 candidate models\n\nlin_reg_model &lt;- linear_reg() %&gt;%\n  set_engine(\"lm\") %&gt;%\n  set_mode(\"regression\")\n\nrf_model &lt;- rand_forest(mtry = 5, trees = 500) %&gt;%\n  set_engine(\"ranger\") %&gt;%\n  set_mode(\"regression\")\n\nxgb_model &lt;- boost_tree(trees = 500, learn_rate = 0.1) %&gt;%\n  set_engine(\"xgboost\") %&gt;%\n  set_mode(\"regression\")"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#test-the-models",
+    "href": "hyperparameter-tuning.html#test-the-models",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Test the models",
+    "text": "Test the models\n\nmodels &lt;- list(\n  linear = lin_reg_model,\n  random_forest = rf_model,\n  xgboost = xgb_model\n)\n\nwf_set &lt;- workflow_set(\n  preproc = list(camels_recipe),\n  models = models\n)\n\nset.seed(123)\nwf_results &lt;- wf_set %&gt;%\n  workflow_map(\"fit_resamples\", resamples = folds)\n\nWarning: package 'ranger' was built under R version 4.4.3\n\n\nWarning: package 'xgboost' was built under R version 4.4.3\n\n\n\nautoplot(wf_results)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#model-selection",
+    "href": "hyperparameter-tuning.html#model-selection",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Model selection",
+    "text": "Model selection\nBased on the visualized metrics, the model I think will perform best is the XGBoost model. While both the boost_tree and linear_reg models performed very well, yielding low RMSE values and high R-squared values, the boost_tree model performed slightly better compared to the linear_reg model. I feel confident choosing the XGBoost model as opposed to the other two, because it has the lowest RMSE value and the highest R-squared value, meaning the confidence in its predictions is relatively high.\nThe model I selected, the XGBoost model, is a boosted tree model that used the “xgboost” engine and the “regression” mode. I think this model is performing especially well for this problem because boosted tree models work strongly with nonlinear data that simpler models can’t capture as well. Given the presence of varying predictors and complex hydrological patterns, the boosted tree model is likely capturing these trends better than the other two models."
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#build-a-model-for-your-chosen-specification",
+    "href": "hyperparameter-tuning.html#build-a-model-for-your-chosen-specification",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Build a model for your chosen specification",
+    "text": "Build a model for your chosen specification\n\nlibrary(parsnip)\nlibrary(tune)\n\nboost_tree_tuned &lt;- boost_tree(\n  mode = \"regression\",\n  engine = \"xgboost\",\n  trees = tune(),\n  tree_depth = tune(),\n  learn_rate = tune()\n)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#create-a-workflow",
+    "href": "hyperparameter-tuning.html#create-a-workflow",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Create a workflow",
+    "text": "Create a workflow\n\nlibrary(workflows)\n\nwf_tune &lt;- workflow() %&gt;%\n  add_model(boost_tree_tuned) %&gt;%\n  add_recipe(camels_recipe)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#check-the-tunable-valuesranges",
+    "href": "hyperparameter-tuning.html#check-the-tunable-valuesranges",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Check the tunable values/ranges",
+    "text": "Check the tunable values/ranges\n\nlibrary(dials)\n\ndials &lt;- extract_parameter_set_dials(wf_tune)\n\ndials$object\n\n[[1]]\n# Trees (quantitative)\nRange: [1, 2000]\n\n[[2]]\nTree Depth (quantitative)\nRange: [1, 15]\n\n[[3]]\nLearning Rate (quantitative)\nTransformer: log-10 [1e-100, Inf]\nRange (transformed scale): [-3, -0.5]"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#define-the-search-space",
+    "href": "hyperparameter-tuning.html#define-the-search-space",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Define the search space",
+    "text": "Define the search space\n\nlibrary(finetune)\n\nWarning: package 'finetune' was built under R version 4.4.3\n\ngrid &lt;- grid_latin_hypercube(\n  dials,\n  size = 25\n)\n\nWarning: `grid_latin_hypercube()` was deprecated in dials 1.3.0.\nℹ Please use `grid_space_filling()` instead.\n\nhead(grid)\n\n# A tibble: 6 × 3\n  trees tree_depth learn_rate\n  &lt;int&gt;      &lt;int&gt;      &lt;dbl&gt;\n1   578          6    0.00192\n2   842          1    0.0691 \n3  1290          4    0.0102 \n4  1152          9    0.00149\n5  1650          8    0.00379\n6   475         14    0.00714"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#tune-the-model",
+    "href": "hyperparameter-tuning.html#tune-the-model",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Tune the model",
+    "text": "Tune the model\n\nlibrary(tune)\nlibrary(yardstick)\nlibrary(ggplot2)\n\nmodel_params &lt;- tune_grid(\n  wf_tune,\n  resamples = folds,\n  grid = grid,\n  metrics = metric_set(rmse, rsq, mae),\n  control = control_grid(save_pred = TRUE)\n)\n\n\nautoplot(model_params)\n\n\n\n\n\n\n\n\nEach row in the plot corresponds to a performance metric (mae, rmse, and rsq). Mean Absolute Error (MAE) quantifies the difference between predicted and actual values, and so lower MAE values mean the predictors are closer to the actual values. Root Mean Square Error (RMSE) is also a value quantifying the predictor’s deviation from the actual observed values, and lower RMSE values are also indicative of better model performance. Finally, R-squared values quantify the proportion of variance in the dependent variable that can be explained by the independent variable. Thus, higher values for the r-squared (particularly R &gt; 0.9), are indicative of an accurate model.\nEach column is one of the hyperparameters we tuned, including the number of boosting iterations, the log-scale learning rate, and the depth of individual trees.\n# Trees:\n\nPerformance stays relatively stable across different numbers of trees, but there’s a bit more variation for MAE and RMSE.\nNo strong improvement after a certain number of trees.\n\nLearning Rate (log-10):\n\nExtremely small learning rates (e.g., -2.5 to -3.0) lead to worse performance, especially for MAE and RMSE.\nMid-range values (e.g., -1.5 to -1) seem to give the best performance overall.\n\nTree Depth:\n\nThere’s a clear spike in error around 9+ for MAE and RMSE.\nLower tree depths seem to consistently perform better, especially when paired with a good learning rate."
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#check-the-skill-of-the-tuned-model",
+    "href": "hyperparameter-tuning.html#check-the-skill-of-the-tuned-model",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Check the skill of the tuned model",
+    "text": "Check the skill of the tuned model\n\nCollect metrics:\n\ncollect_metrics(model_params)\n\n# A tibble: 75 × 9\n   trees tree_depth learn_rate .metric .estimator   mean     n std_err .config  \n   &lt;int&gt;      &lt;int&gt;      &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;    \n 1   842          1     0.0691 mae     standard   0.105     10 0.00358 Preproce…\n 2   842          1     0.0691 rmse    standard   0.191     10 0.0120  Preproce…\n 3   842          1     0.0691 rsq     standard   0.988     10 0.00120 Preproce…\n 4   774          2     0.0143 mae     standard   0.0922    10 0.00267 Preproce…\n 5   774          2     0.0143 rmse    standard   0.162     10 0.00720 Preproce…\n 6   774          2     0.0143 rsq     standard   0.990     10 0.00164 Preproce…\n 7   282          2     0.164  mae     standard   0.0987    10 0.00352 Preproce…\n 8   282          2     0.164  rmse    standard   0.161     10 0.00699 Preproce…\n 9   282          2     0.164  rsq     standard   0.990     10 0.00142 Preproce…\n10  1220          3     0.0178 mae     standard   0.0865    10 0.00347 Preproce…\n# ℹ 65 more rows\n\n\n\ncollect_metrics(model_params) %&gt;%\n  filter(.metric == \"mae\") %&gt;%\n  arrange(mean) %&gt;%\n  slice_head(n = 5)\n\n# A tibble: 5 × 9\n  trees tree_depth learn_rate .metric .estimator   mean     n std_err .config   \n  &lt;int&gt;      &lt;int&gt;      &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;     \n1   338          4    0.0804  mae     standard   0.0831    10 0.00326 Preproces…\n2  1290          4    0.0102  mae     standard   0.0845    10 0.00329 Preproces…\n3  1796          5    0.0548  mae     standard   0.0859    10 0.00403 Preproces…\n4  1220          3    0.0178  mae     standard   0.0865    10 0.00347 Preproces…\n5  1727          6    0.00417 mae     standard   0.0872    10 0.00400 Preproces…\n\n\nUsing the collect_metrics function, we can generate a tibble showing the top 5 hyperparameter combinations ranked by lowest MAE. For each of the 5, their MAE is between 0.083 and 0.088. The tibble also shows the hyperparameters that combined to have the lowest MAE, including trees, tree depth, learn rate, and more.\n\n\nShow best, by MAE:\n\nshow_best(model_params, metric = \"mae\")\n\n# A tibble: 5 × 9\n  trees tree_depth learn_rate .metric .estimator   mean     n std_err .config   \n  &lt;int&gt;      &lt;int&gt;      &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;     \n1   338          4    0.0804  mae     standard   0.0831    10 0.00326 Preproces…\n2  1290          4    0.0102  mae     standard   0.0845    10 0.00329 Preproces…\n3  1796          5    0.0548  mae     standard   0.0859    10 0.00403 Preproces…\n4  1220          3    0.0178  mae     standard   0.0865    10 0.00347 Preproces…\n5  1727          6    0.00417 mae     standard   0.0872    10 0.00400 Preproces…\n\n\nUsing the show_best function reveals the best 5 hyperparameter tests based on their MAE. These are tests with number of trees ranging from 338 to 1727, tree depths ranging from 3 to 6, and learn rates ranging from 0.004 to 0.08. They are all connected by their MAE value of approximately 0.085 (0.083-0.087).\n\n\nSelect and save best:\n\nhp_best &lt;- select_best(model_params, metric = \"mae\")"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#finalize-the-model",
+    "href": "hyperparameter-tuning.html#finalize-the-model",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Finalize the model",
+    "text": "Finalize the model\n\nfinal_wf &lt;- finalize_workflow(\n  wf_tune,\n  hp_best\n)\n\nfinal_fit &lt;- last_fit(final_wf, split = camels_split)"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#final-model-verification",
+    "href": "hyperparameter-tuning.html#final-model-verification",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Final Model Verification",
+    "text": "Final Model Verification\n\nUse last_fit\n\nfinal_fit &lt;- last_fit(\n  final_wf,\n  camels_split\n)\n\n\n\nUse collect_metrics\n\ncollect_metrics(final_fit)\n\n# A tibble: 2 × 4\n  .metric .estimator .estimate .config             \n  &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;               \n1 rmse    standard       0.146 Preprocessor1_Model1\n2 rsq     standard       0.989 Preprocessor1_Model1\n\n\n\n\nInterpretation\nRMSE = 0.1462\nThis means that, on average, the predictions are off by about 0.15 units. In regression, a lower RMSE indicates better model performance, so this is a low RMSE overall.\nRSQ = 0.9893\nThis means that about 98.93% of the variance in the actual test data is explained by the model. This is extremely high, which suggests the model is doing a great job of predicting the data.\nCompared to training data\nThe best training MAE’s were around the 0.004 - 0.08 range, depending on hyperparameters. If the training RMSE was significantly lower than 0.146, the model may be slightly overfitting, but with an R-squared value of 0.989, it’s likely still performing very well overall.\n\n\nUse collect_predictions\n\nfinal_fit &lt;- last_fit(final_wf, split = camels_split)\n\nfinal_preds &lt;- collect_predictions(final_fit)\n\n\n\nCreate scatter plot\n\nggplot(final_preds, aes(x = .pred, y = q_mean)) +\n  geom_point(aes(color = .pred), alpha = 0.6) +\n  geom_smooth(method = \"lm\", se = FALSE, color = \"midnightblue\") +\n  geom_abline(intercept = 0, slope = 1, linetype = \"dashed\", color = \"darkred\") +\n  scale_color_gradient(low = \"plum\", high = \"slateblue4\") +\n  labs(\n    title = \"Predicted vs Actual Values\",\n    x = \"Predicted\",\n    y = \"Actual\"\n  ) +\n  theme_minimal()\n\n`geom_smooth()` using formula = 'y ~ x'"
+  },
+  {
+    "objectID": "hyperparameter-tuning.html#building-a-map",
+    "href": "hyperparameter-tuning.html#building-a-map",
+    "title": "Lab 8: Machine Learning Tuning",
+    "section": "Building a Map",
+    "text": "Building a Map\n\nUse fit\n\nfinal_fit &lt;- fit(final_wf, data = camels_clean)\n\n\n\nUse augment\n\nfinal_aug &lt;- augment(final_fit, new_data = camels_clean)\n\nprint(final_aug)\n\n# A tibble: 670 × 59\n   .pred gauge_id gauge_lat gauge_lon p_mean pet_mean p_seasonality frac_snow\n   &lt;dbl&gt; &lt;chr&gt;        &lt;dbl&gt;     &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt;         &lt;dbl&gt;     &lt;dbl&gt;\n 1  1.71 01013500      47.2     -68.6   3.13     1.97        0.188      0.313\n 2  2.16 01022500      44.6     -67.9   3.61     2.12       -0.115      0.245\n 3  1.82 01030500      45.5     -68.3   3.27     2.04        0.0474     0.277\n 4  2.04 01031500      45.2     -69.3   3.52     2.07        0.104      0.292\n 5  2.18 01047000      44.9     -70.0   3.32     2.09        0.148      0.280\n 6  2.41 01052500      44.9     -71.1   3.73     2.10        0.152      0.353\n 7  2.75 01054200      44.4     -71.0   4.07     2.13        0.105      0.300\n 8  2.26 01055000      44.6     -70.6   3.49     2.09        0.167      0.306\n 9  1.82 01057000      44.3     -70.5   3.57     2.13        0.0791     0.251\n10  1.71 01073000      43.1     -71.0   3.50     2.21        0.0304     0.175\n# ℹ 660 more rows\n# ℹ 51 more variables: aridity &lt;dbl&gt;, high_prec_freq &lt;dbl&gt;,\n#   high_prec_dur &lt;dbl&gt;, high_prec_timing &lt;chr&gt;, low_prec_freq &lt;dbl&gt;,\n#   low_prec_dur &lt;dbl&gt;, low_prec_timing &lt;chr&gt;, geol_1st_class &lt;chr&gt;,\n#   glim_1st_class_frac &lt;dbl&gt;, geol_2nd_class &lt;chr&gt;, glim_2nd_class_frac &lt;dbl&gt;,\n#   carbonate_rocks_frac &lt;dbl&gt;, geol_porostiy &lt;dbl&gt;, geol_permeability &lt;dbl&gt;,\n#   soil_depth_pelletier &lt;dbl&gt;, soil_depth_statsgo &lt;dbl&gt;, …\n\n\n\n\nUse mutate\n\nfinal_aug &lt;- final_aug %&gt;%\n  mutate(residual = (q_mean - .pred)^2)\n\n\n\nCreate a map of predictions\n\nmap_pred &lt;- ggplot(final_aug, aes(x = gauge_lon, y = gauge_lat)) +\n  geom_point(aes(color = .pred), size = 1.5, alpha = 0.7) +\n  scale_color_gradient(low = \"plum1\", high = \"slateblue4\") +\n  labs(title = \"Predicted Streamflow\", color = \"Prediction\") +\n  theme_minimal()\n\n\n\nCreate a map of residuals\n\nmap_resid &lt;- ggplot(final_aug, aes(x = gauge_lon, y = gauge_lat)) +\n  geom_point(aes(color = residual), size = 1.5, alpha = 0.7) +\n  scale_color_gradient(low = \"antiquewhite\", high = \"seagreen4\") +\n  labs(title = \"Squared Residuals\", color = \"Residual\") +\n  theme_minimal()\n\n\n\nCombine the two maps\n\nlibrary(patchwork)\n\nmap_pred + map_resid"
+  },
+  {
+    "objectID": "lab6.html",
+    "href": "lab6.html",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "",
+    "text": "library(tidyverse)\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4     ✔ readr     2.1.5\n✔ forcats   1.0.0     ✔ stringr   1.5.1\n✔ ggplot2   3.5.1     ✔ tibble    3.2.1\n✔ lubridate 1.9.4     ✔ tidyr     1.3.1\n✔ purrr     1.0.2     \n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors\n\nlibrary(tidymodels)\n\n── Attaching packages ────────────────────────────────────── tidymodels 1.2.0 ──\n✔ broom        1.0.7     ✔ rsample      1.2.1\n✔ dials        1.3.0     ✔ tune         1.2.1\n✔ infer        1.0.7     ✔ workflows    1.1.4\n✔ modeldata    1.4.0     ✔ workflowsets 1.1.0\n✔ parsnip      1.2.1     ✔ yardstick    1.3.1\n✔ recipes      1.1.0     \n── Conflicts ───────────────────────────────────────── tidymodels_conflicts() ──\n✖ scales::discard() masks purrr::discard()\n✖ dplyr::filter()   masks stats::filter()\n✖ recipes::fixed()  masks stringr::fixed()\n✖ dplyr::lag()      masks stats::lag()\n✖ yardstick::spec() masks readr::spec()\n✖ recipes::step()   masks stats::step()\n• Use tidymodels_prefer() to resolve common conflicts.\n\nlibrary(powerjoin)\n\nWarning: package 'powerjoin' was built under R version 4.4.3\n\nlibrary(glue)\nlibrary(vip)\n\nWarning: package 'vip' was built under R version 4.4.3\n\n\n\nAttaching package: 'vip'\n\nThe following object is masked from 'package:utils':\n\n    vi\n\nlibrary(baguette)\n\nWarning: package 'baguette' was built under R version 4.4.3"
+  },
+  {
+    "objectID": "lab6.html#lab-set-up",
+    "href": "lab6.html#lab-set-up",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "",
+    "text": "library(tidyverse)\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4     ✔ readr     2.1.5\n✔ forcats   1.0.0     ✔ stringr   1.5.1\n✔ ggplot2   3.5.1     ✔ tibble    3.2.1\n✔ lubridate 1.9.4     ✔ tidyr     1.3.1\n✔ purrr     1.0.2     \n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors\n\nlibrary(tidymodels)\n\n── Attaching packages ────────────────────────────────────── tidymodels 1.2.0 ──\n✔ broom        1.0.7     ✔ rsample      1.2.1\n✔ dials        1.3.0     ✔ tune         1.2.1\n✔ infer        1.0.7     ✔ workflows    1.1.4\n✔ modeldata    1.4.0     ✔ workflowsets 1.1.0\n✔ parsnip      1.2.1     ✔ yardstick    1.3.1\n✔ recipes      1.1.0     \n── Conflicts ───────────────────────────────────────── tidymodels_conflicts() ──\n✖ scales::discard() masks purrr::discard()\n✖ dplyr::filter()   masks stats::filter()\n✖ recipes::fixed()  masks stringr::fixed()\n✖ dplyr::lag()      masks stats::lag()\n✖ yardstick::spec() masks readr::spec()\n✖ recipes::step()   masks stats::step()\n• Use tidymodels_prefer() to resolve common conflicts.\n\nlibrary(powerjoin)\n\nWarning: package 'powerjoin' was built under R version 4.4.3\n\nlibrary(glue)\nlibrary(vip)\n\nWarning: package 'vip' was built under R version 4.4.3\n\n\n\nAttaching package: 'vip'\n\nThe following object is masked from 'package:utils':\n\n    vi\n\nlibrary(baguette)\n\nWarning: package 'baguette' was built under R version 4.4.3"
+  },
+  {
+    "objectID": "lab6.html#data-download",
+    "href": "lab6.html#data-download",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Data Download",
+    "text": "Data Download\n\nroot  &lt;- 'https://gdex.ucar.edu/dataset/camels/file'"
+  },
+  {
+    "objectID": "lab6.html#getting-the-documentation-pdf",
+    "href": "lab6.html#getting-the-documentation-pdf",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Getting the Documentation PDF",
+    "text": "Getting the Documentation PDF\n\ndownload.file('https://gdex.ucar.edu/dataset/camels/file/camels_attributes_v2.0.pdf', \n              'data/camels_attributes_v2.0.pdf', mode = \"wb\")"
+  },
+  {
+    "objectID": "lab6.html#getting-basin-characteristics",
+    "href": "lab6.html#getting-basin-characteristics",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Getting Basin Characteristics",
+    "text": "Getting Basin Characteristics\n\ntypes &lt;- c(\"clim\", \"geol\", \"soil\", \"topo\", \"vege\", \"hydro\")\n\n\nremote_files  &lt;- glue('{root}/camels_{types}.txt')\n\nlocal_files   &lt;- glue('data/camels_{types}.txt')\n\n\nwalk2(remote_files, local_files, download.file, quiet = TRUE)\n\n\ncamels &lt;- map(local_files, read_delim, show_col_types = FALSE) \n\n\ncamels &lt;- power_full_join(camels ,by = 'gauge_id')"
+  },
+  {
+    "objectID": "lab6.html#exploratory-data-analysis",
+    "href": "lab6.html#exploratory-data-analysis",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Exploratory Data Analysis:",
+    "text": "Exploratory Data Analysis:\n\nggplot(data = camels, aes(x = gauge_lon, y = gauge_lat)) +\n  borders(\"state\", colour = \"gray50\") +\n  geom_point(aes(color = q_mean)) +\n  scale_color_gradient(low = \"pink\", high = \"dodgerblue\") +\n  ggthemes::theme_map()"
+  },
+  {
+    "objectID": "lab6.html#model-preparation",
+    "href": "lab6.html#model-preparation",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Model preparation:",
+    "text": "Model preparation:\n\ncamels |&gt; \n  select(aridity, p_mean, q_mean) |&gt; \n  drop_na() |&gt; \n  cor()\n\n           aridity     p_mean     q_mean\naridity  1.0000000 -0.7550090 -0.5817771\np_mean  -0.7550090  1.0000000  0.8865757\nq_mean  -0.5817771  0.8865757  1.0000000"
+  },
+  {
+    "objectID": "lab6.html#visual-eda",
+    "href": "lab6.html#visual-eda",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Visual EDA:",
+    "text": "Visual EDA:\n\nggplot(camels, aes(x = aridity, y = p_mean)) +\n  geom_point(aes(color = q_mean)) +\n  geom_smooth(method = \"lm\", color = \"red\", linetype = 2) +\n  scale_color_viridis_c() +\n  theme_linedraw() + \n  theme(legend.position = \"bottom\") + \n  labs(title = \"Aridity vs Rainfall vs Runnoff\", \n       x = \"Aridity\", \n       y = \"Rainfall\",\n       color = \"Mean Flow\")\n\n`geom_smooth()` using formula = 'y ~ x'"
+  },
+  {
+    "objectID": "lab6.html#testing-a-transformation",
+    "href": "lab6.html#testing-a-transformation",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Testing a transformation:",
+    "text": "Testing a transformation:\n\nggplot(camels, aes(x = aridity, y = p_mean)) +\n  geom_point(aes(color = q_mean)) +\n  geom_smooth(method = \"lm\") +\n  scale_color_viridis_c() +\n  scale_x_log10() + \n  scale_y_log10() +\n  theme_linedraw() +\n  theme(legend.position = \"bottom\") + \n  labs(title = \"Aridity vs Rainfall vs Runnoff\", \n       x = \"Aridity\", \n       y = \"Rainfall\",\n       color = \"Mean Flow\")\n\n`geom_smooth()` using formula = 'y ~ x'"
+  },
+  {
+    "objectID": "lab6.html#log-transform-color-scale",
+    "href": "lab6.html#log-transform-color-scale",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Log transform color scale",
+    "text": "Log transform color scale\n\nggplot(camels, aes(x = aridity, y = p_mean)) +\n  geom_point(aes(color = q_mean)) +\n  geom_smooth(method = \"lm\") +\n  scale_color_viridis_c(trans = \"log\") +\n  scale_x_log10() + \n  scale_y_log10() +\n  theme_linedraw() +\n  theme(legend.position = \"bottom\",\n        legend.key.width = unit(2.5, \"cm\"),\n        legend.key.height = unit(.5, \"cm\")) + \n  labs(title = \"Aridity vs Rainfall vs Runnoff\", \n       x = \"Aridity\", \n       y = \"Rainfall\",\n       color = \"Mean Flow\") \n\n`geom_smooth()` using formula = 'y ~ x'"
+  },
+  {
+    "objectID": "lab6.html#splitting-the-data",
+    "href": "lab6.html#splitting-the-data",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Splitting the data:",
+    "text": "Splitting the data:\n\nset.seed(123)\n\ncamels &lt;- camels |&gt; \n  mutate(logQmean = log(q_mean))\n\ncamels_split &lt;- initial_split(camels, prop = 0.8)\ncamels_train &lt;- training(camels_split)\ncamels_test  &lt;- testing(camels_split)\n\ncamels_cv &lt;- vfold_cv(camels_train, v = 10)"
+  },
+  {
+    "objectID": "lab6.html#create-a-recipe-to-preprocess-data",
+    "href": "lab6.html#create-a-recipe-to-preprocess-data",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Create a recipe to preprocess data:",
+    "text": "Create a recipe to preprocess data:\n\nrec &lt;-  recipe(logQmean ~ aridity + p_mean, data = camels_train) %&gt;%\n  step_log(all_predictors()) %&gt;%\n  step_interact(terms = ~ aridity:p_mean) |&gt; \n  step_naomit(all_predictors(), all_outcomes())"
+  },
+  {
+    "objectID": "lab6.html#native-base-lm-approach",
+    "href": "lab6.html#native-base-lm-approach",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Native base lm approach:",
+    "text": "Native base lm approach:\n\nbaked_data &lt;- prep(rec, camels_train) |&gt; \n  bake(new_data = NULL)\n\nlm_base &lt;- lm(logQmean ~ aridity * p_mean, data = baked_data)\nsummary(lm_base)\n\n\nCall:\nlm(formula = logQmean ~ aridity * p_mean, data = baked_data)\n\nResiduals:\n     Min       1Q   Median       3Q      Max \n-2.91162 -0.21601 -0.00716  0.21230  2.85706 \n\nCoefficients:\n               Estimate Std. Error t value Pr(&gt;|t|)    \n(Intercept)    -1.77586    0.16365 -10.852  &lt; 2e-16 ***\naridity        -0.88397    0.16145  -5.475 6.75e-08 ***\np_mean          1.48438    0.15511   9.570  &lt; 2e-16 ***\naridity:p_mean  0.10484    0.07198   1.457    0.146    \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\nResidual standard error: 0.5696 on 531 degrees of freedom\nMultiple R-squared:  0.7697,    Adjusted R-squared:  0.7684 \nF-statistic: 591.6 on 3 and 531 DF,  p-value: &lt; 2.2e-16\n\n\n\nsummary(lm(logQmean ~ aridity + p_mean + aridity_x_p_mean, data = baked_data))\n\n\nCall:\nlm(formula = logQmean ~ aridity + p_mean + aridity_x_p_mean, \n    data = baked_data)\n\nResiduals:\n     Min       1Q   Median       3Q      Max \n-2.91162 -0.21601 -0.00716  0.21230  2.85706 \n\nCoefficients:\n                 Estimate Std. Error t value Pr(&gt;|t|)    \n(Intercept)      -1.77586    0.16365 -10.852  &lt; 2e-16 ***\naridity          -0.88397    0.16145  -5.475 6.75e-08 ***\np_mean            1.48438    0.15511   9.570  &lt; 2e-16 ***\naridity_x_p_mean  0.10484    0.07198   1.457    0.146    \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\nResidual standard error: 0.5696 on 531 degrees of freedom\nMultiple R-squared:  0.7697,    Adjusted R-squared:  0.7684 \nF-statistic: 591.6 on 3 and 531 DF,  p-value: &lt; 2.2e-16\n\n\n\ntest_data &lt;-  bake(prep(rec), new_data = camels_test)\ntest_data$lm_pred &lt;- predict(lm_base, newdata = test_data)"
+  },
+  {
+    "objectID": "lab6.html#statistical-and-visual-evaluation",
+    "href": "lab6.html#statistical-and-visual-evaluation",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Statistical and Visual Evaluation:",
+    "text": "Statistical and Visual Evaluation:\n\nmetrics(test_data, truth = logQmean, estimate = lm_pred)\n\n# A tibble: 3 × 3\n  .metric .estimator .estimate\n  &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;\n1 rmse    standard       0.583\n2 rsq     standard       0.742\n3 mae     standard       0.390\n\n\n\nggplot(test_data, aes(x = logQmean, y = lm_pred, colour = aridity)) +\n  scale_color_gradient2(low = \"brown\", mid = \"orange\", high = \"darkgreen\") +\n  geom_point() +\n  geom_abline(linetype = 2) +\n  theme_linedraw() + \n  labs(title = \"Linear Model: Observed vs Predicted\",\n       x = \"Observed Log Mean Flow\",\n       y = \"Predicted Log Mean Flow\",\n       color = \"Aridity\")\n\n\n\n\n\n\n\n\n\nlm_model &lt;- linear_reg() %&gt;%\n  set_engine(\"lm\") %&gt;%\n  set_mode(\"regression\")\n\nlm_wf &lt;- workflow() %&gt;%\n  add_recipe(rec) %&gt;%\n  add_model(lm_model) %&gt;%\n  fit(data = camels_train) \n\nsummary(extract_fit_engine(lm_wf))$coefficients\n\n                   Estimate Std. Error    t value     Pr(&gt;|t|)\n(Intercept)      -1.7758557 0.16364755 -10.851710 6.463654e-25\naridity          -0.8839738 0.16144589  -5.475357 6.745512e-08\np_mean            1.4843771 0.15511117   9.569762 4.022500e-20\naridity_x_p_mean  0.1048449 0.07198145   1.456555 1.458304e-01\n\n\n\nsummary(lm_base)$coefficients\n\n                 Estimate Std. Error    t value     Pr(&gt;|t|)\n(Intercept)    -1.7758557 0.16364755 -10.851710 6.463654e-25\naridity        -0.8839738 0.16144589  -5.475357 6.745512e-08\np_mean          1.4843771 0.15511117   9.569762 4.022500e-20\naridity:p_mean  0.1048449 0.07198145   1.456555 1.458304e-01"
+  },
+  {
+    "objectID": "lab6.html#making-predictions",
+    "href": "lab6.html#making-predictions",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Making predictions:",
+    "text": "Making predictions:\n\nlm_data &lt;- augment(lm_wf, new_data = camels_test)\ndim(lm_data)\n\n[1] 135  61"
+  },
+  {
+    "objectID": "lab6.html#statistical-and-visual-evaluation-1",
+    "href": "lab6.html#statistical-and-visual-evaluation-1",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Statistical and Visual Evaluation:",
+    "text": "Statistical and Visual Evaluation:\n\nmetrics(lm_data, truth = logQmean, estimate = .pred)\n\n# A tibble: 3 × 3\n  .metric .estimator .estimate\n  &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;\n1 rmse    standard       0.583\n2 rsq     standard       0.742\n3 mae     standard       0.390\n\n\n\nggplot(lm_data, aes(x = logQmean, y = .pred, colour = aridity)) +\n  scale_color_viridis_c() +\n  geom_point() +\n  geom_abline() +\n  theme_linedraw()\n\n\n\n\n\n\n\n\n\nlibrary(baguette)\nrf_model &lt;- rand_forest() %&gt;%\n  set_engine(\"ranger\", importance = \"impurity\") %&gt;%\n  set_mode(\"regression\")\n\nrf_wf &lt;- workflow() %&gt;%\n  add_recipe(rec) %&gt;%\n  add_model(rf_model) %&gt;%\n  fit(data = camels_train)"
+  },
+  {
+    "objectID": "lab6.html#predictions",
+    "href": "lab6.html#predictions",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Predictions:",
+    "text": "Predictions:\n\nrf_data &lt;- augment(rf_wf, new_data = camels_test)\ndim(rf_data)\n\n[1] 135  60"
+  },
+  {
+    "objectID": "lab6.html#statistical-and-visual-evaluation-2",
+    "href": "lab6.html#statistical-and-visual-evaluation-2",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Statistical and Visual Evaluation:",
+    "text": "Statistical and Visual Evaluation:\n\nggplot(rf_data, aes(x = logQmean, y = .pred, colour = aridity)) +\n  scale_color_viridis_c() +\n  geom_point() +\n  geom_abline() +\n  theme_linedraw()"
+  },
+  {
+    "objectID": "lab6.html#a-workflowset-approach",
+    "href": "lab6.html#a-workflowset-approach",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "A workflowset approach:",
+    "text": "A workflowset approach:\n\nwf &lt;- workflow_set(list(rec), list(lm_model, rf_model)) %&gt;%\n  workflow_map('fit_resamples', resamples = camels_cv) \n\nWarning: package 'ranger' was built under R version 4.4.3\n\nautoplot(wf)\n\n\n\n\n\n\n\n\n\nrank_results(wf, rank_metric = \"rsq\", select_best = TRUE)\n\n# A tibble: 4 × 9\n  wflow_id          .config .metric  mean std_err     n preprocessor model  rank\n  &lt;chr&gt;             &lt;chr&gt;   &lt;chr&gt;   &lt;dbl&gt;   &lt;dbl&gt; &lt;int&gt; &lt;chr&gt;        &lt;chr&gt; &lt;int&gt;\n1 recipe_rand_fore… Prepro… rmse    0.564  0.0253    10 recipe       rand…     1\n2 recipe_rand_fore… Prepro… rsq     0.770  0.0260    10 recipe       rand…     1\n3 recipe_linear_reg Prepro… rmse    0.569  0.0260    10 recipe       line…     2\n4 recipe_linear_reg Prepro… rsq     0.770  0.0223    10 recipe       line…     2"
+  },
+  {
+    "objectID": "lab6.html#build-xgboost-regression-model",
+    "href": "lab6.html#build-xgboost-regression-model",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Build xgboost regression model:",
+    "text": "Build xgboost regression model:\n\nlibrary(xgboost)\n\nWarning: package 'xgboost' was built under R version 4.4.3\n\n\n\nAttaching package: 'xgboost'\n\n\nThe following object is masked from 'package:dplyr':\n\n    slice\n\nxgb_model &lt;- boost_tree(trees = 1000, tree_depth = 6, learn_rate = 0.1) %&gt;%\n  set_engine(\"xgboost\") %&gt;%\n  set_mode(\"regression\")\n\nxgb_wf &lt;- workflow() %&gt;%\n  add_recipe(rec) %&gt;%\n  add_model(xgb_model) %&gt;%\n  fit(data = camels_train)\n\n\nxgb_data &lt;- augment(xgb_wf, new_data = camels_test)\n\nggplot(xgb_data, aes(x = logQmean, y = .pred, colour = aridity)) +\n  scale_color_viridis_c() +\n  geom_point() +\n  geom_abline() +\n  theme_linedraw()"
+  },
+  {
+    "objectID": "lab6.html#build-a-neural-network-model",
+    "href": "lab6.html#build-a-neural-network-model",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Build a neural network model:",
+    "text": "Build a neural network model:\n\nnn_model &lt;- bag_mlp() %&gt;%\n  set_engine(\"nnet\") %&gt;%\n  set_mode(\"regression\")\n\nnn_wf &lt;- workflow() %&gt;%\n  add_recipe(rec) %&gt;%\n  add_model(nn_model) %&gt;%\n  fit(data = camels_train)"
+  },
+  {
+    "objectID": "lab6.html#evaluate-the-model",
+    "href": "lab6.html#evaluate-the-model",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Evaluate the model:",
+    "text": "Evaluate the model:\n\nnn_data &lt;- augment(nn_wf, new_data = camels_test)\n\nggplot(nn_data, aes(x = logQmean, y = .pred, colour = aridity)) +\n  scale_color_viridis_c() +\n  geom_point() +\n  geom_abline() +\n  theme_linedraw()"
+  },
+  {
+    "objectID": "lab6.html#comparing-all-models",
+    "href": "lab6.html#comparing-all-models",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Comparing all models:",
+    "text": "Comparing all models:\n\nxg_model &lt;- boost_tree() %&gt;%\n  set_engine(\"xgboost\") %&gt;%\n  set_mode(\"regression\")\n\nxg_workflow &lt;- workflow() %&gt;%\n  add_recipe(rec) %&gt;%\n  add_model(xg_model) %&gt;%\n  fit(data = camels_train)\n\nnn_model &lt;- bag_mlp() %&gt;%\n  set_engine(\"nnet\") %&gt;%\n  set_mode(\"regression\")\n\nnn_workflow &lt;- workflow() %&gt;%\n  add_recipe(rec) %&gt;%\n  add_model(nn_model) %&gt;%\n  fit(data = camels_train)\n\n\nlm_data &lt;- augment(lm_wf, new_data = camels_test)\n\nrf_data &lt;- augment(rf_wf, new_data = camels_test)\n\nxgb_data &lt;- augment(xgb_wf, new_data = camels_test)\n\nnn_data &lt;- augment(nn_wf, new_data = camels_test)"
+  },
+  {
+    "objectID": "lab6.html#evaluate-model-performance",
+    "href": "lab6.html#evaluate-model-performance",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Evaluate Model Performance:",
+    "text": "Evaluate Model Performance:\n\nlibrary(yardstick)\n\nevaluate_model &lt;- function(data) {\n  metrics(data, truth = logQmean, estimate = .pred)\n}\n\nlm_metrics &lt;- evaluate_model(lm_data) %&gt;% mutate(model = \"Linear Model\")\n\nrf_metrics &lt;- evaluate_model(rf_data) %&gt;% mutate(model = \"Random Forest\")\n\nxgb_metrics &lt;- evaluate_model(xgb_data) %&gt;% mutate(model = \"XGBoost\")\n\nnn_metrics &lt;- evaluate_model(nn_data) %&gt;% mutate(model = \"Neural Network\")\n\nmodel_comparison &lt;- bind_rows(lm_metrics, rf_metrics, xgb_metrics, nn_metrics)\n\nprint(model_comparison)\n\n# A tibble: 12 × 4\n   .metric .estimator .estimate model         \n   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;         \n 1 rmse    standard       0.583 Linear Model  \n 2 rsq     standard       0.742 Linear Model  \n 3 mae     standard       0.390 Linear Model  \n 4 rmse    standard       0.588 Random Forest \n 5 rsq     standard       0.740 Random Forest \n 6 mae     standard       0.365 Random Forest \n 7 rmse    standard       0.671 XGBoost       \n 8 rsq     standard       0.670 XGBoost       \n 9 mae     standard       0.419 XGBoost       \n10 rmse    standard       0.549 Neural Network\n11 rsq     standard       0.769 Neural Network\n12 mae     standard       0.342 Neural Network"
+  },
+  {
+    "objectID": "lab6.html#visual-evaluation",
+    "href": "lab6.html#visual-evaluation",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Visual Evaluation:",
+    "text": "Visual Evaluation:\n\nggplot(model_comparison, aes(x = model, y = .estimate, fill = .metric)) +\n  geom_bar(stat = \"identity\", position = \"dodge\") +\n  theme_minimal() +\n  labs(title = \"Model Performance Comparison\", y = \"Metric Value\", x = \"Model\")"
+  },
+  {
+    "objectID": "lab6.html#which-of-the-4-models-would-you-move-forward-with",
+    "href": "lab6.html#which-of-the-4-models-would-you-move-forward-with",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Which of the 4 models would you move forward with?",
+    "text": "Which of the 4 models would you move forward with?\nWhen examining all three of the metrics used to evaluate the models (RMSE, R2, and MAE), there is a clear trend that the neural network model is the most accurate. I would move forward with the neural net model because it has the lowest RMSE (more accurate predictions), highest R2 (better model fit), and the lowest MAE (less error in predictions). While the gains aren’t extreme, the trend is clearly indicating that the neural network model is the most accurate of the four, and should be the one we move forward with."
+  },
+  {
+    "objectID": "lab6.html#data-splitting",
+    "href": "lab6.html#data-splitting",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Data Splitting:",
+    "text": "Data Splitting:\n\n# Set a seed for reproducible:\nset.seed(123)\n\n# Split 75% training/25% testing\nsplit_data &lt;- initial_split(camels, prop = 0.75)\n\n# Extract training/testing sets:\ntrain_data &lt;- training(split_data)\ntest_data &lt;- testing(split_data)\n\n# 10-fold CV dataset:\ncv_splits &lt;- vfold_cv(train_data, v = 10)"
+  },
+  {
+    "objectID": "lab6.html#recipe",
+    "href": "lab6.html#recipe",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Recipe:",
+    "text": "Recipe:\n\n# Define the formula for logQmean:\nformula &lt;- logQmean ~ p_mean + pet_mean + elev_mean + area_gages2 + max_water_content + slope_mean\n\n\nDescribe why you’re choosing this formula:\nI chose to use the formula above because it captures variables that are all important in predicting streamflow, including precipitation, PET, catchment elevation, catchment area, catchment slope, and maximum water content. Precipitation and potential evapotranspiration all influence the water availability in an area and how much water would be readily available within the streamflow. Catchment elevation, slope, and area are all significantly important characteristics of a region that influence its access to water, availability of rain/snow, exposure to sun and evaporation, the types of plants absorbing water, etc. Each of the characteristics selected have significant tangible impacts on streamflow in different regions.\n\n# Build a recipe:\nrec &lt;- recipe(formula, data = camels_train) %&gt;%\n  step_scale(all_predictors()) %&gt;%\n  step_center(all_predictors())"
+  },
+  {
+    "objectID": "lab6.html#define-3-models",
+    "href": "lab6.html#define-3-models",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Define 3 models:",
+    "text": "Define 3 models:\n\nRandom forest model:\n\nlibrary(parsnip)\n\nrf_camel &lt;- rand_forest(trees = 1000, mtry = 4, min_n = 5) %&gt;%\n  set_engine(\"ranger\") %&gt;%\n  set_mode(\"regression\")\n\n\n\nXGBoost model:\n\nxgb_camel &lt;- boost_tree(trees = 1000, tree_depth = 6, learn_rate = 0.1) %&gt;%\n  set_engine(\"xgboost\") %&gt;%\n  set_mode(\"regression\")\n\n\n\nNeural network model:\n\nnn_camel &lt;- bag_mlp(hidden_units = 3, penalty = 0.01) %&gt;%\n  set_engine(\"nnet\") %&gt;%\n  set_mode(\"regression\")"
+  },
+  {
+    "objectID": "lab6.html#workflow-set",
+    "href": "lab6.html#workflow-set",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Workflow set()",
+    "text": "Workflow set()\n\n# Create a workflow object, add recipe, add models, and fit to resamples:\nwf_2 &lt;- workflow_set(list(rec), list(xgb_camel, rf_camel, nn_camel)) %&gt;%\n  workflow_map('fit_resamples', resamples = camels_cv)\n\n→ A | error:   [12:31:22] src/data/data.cc:461: Check failed: valid: Label contains NaN, infinity or a value too large.\n\n\nThere were issues with some computations   A: x1\n\n\n→ B | error:   [12:31:23] src/data/data.cc:461: Check failed: valid: Label contains NaN, infinity or a value too large.\n\n\nThere were issues with some computations   A: x1\nThere were issues with some computations   A: x4   B: x5\n\n→ A | error:   Error: Missing data in dependent variable.\nThere were issues with some computations   A: x1\nThere were issues with some computations   A: x9"
+  },
+  {
+    "objectID": "lab6.html#evaluation",
+    "href": "lab6.html#evaluation",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Evaluation:",
+    "text": "Evaluation:\n\nautoplot(wf_2)\n\n\n\n\n\n\n\n\n\nranked_results &lt;- wf_2 %&gt;%\n  rank_results()\n\nprint(ranked_results)\n\n# A tibble: 6 × 9\n  wflow_id         .config .metric  mean  std_err     n preprocessor model  rank\n  &lt;chr&gt;            &lt;chr&gt;   &lt;chr&gt;   &lt;dbl&gt;    &lt;dbl&gt; &lt;int&gt; &lt;chr&gt;        &lt;chr&gt; &lt;int&gt;\n1 recipe_bag_mlp   Prepro… rmse    0.335  0.0153     10 recipe       bag_…     1\n2 recipe_bag_mlp   Prepro… rsq     0.924  0.00471    10 recipe       bag_…     1\n3 recipe_rand_for… Prepro… rmse    0.395 NA           1 recipe       rand…     2\n4 recipe_rand_for… Prepro… rsq     0.876 NA           1 recipe       rand…     2\n5 recipe_boost_tr… Prepro… rmse    0.418 NA           1 recipe       boos…     3\n6 recipe_boost_tr… Prepro… rsq     0.864 NA           1 recipe       boos…     3\n\n\nThe model that is best from this selection is the neural network model, which is the only model that yields an R2 value that is over 0.9. Thus, using the lab’s metric that a successful model will have an R-squared value greater than 0.9, the neural network model is the only one of my three tested models that is fully successful. It also has the lowest RMSE value, meaning the model’s predictions are closer to the actual values than the predicted values of the boost_tree and rand_forest models."
+  },
+  {
+    "objectID": "lab6.html#extract-and-evaluate",
+    "href": "lab6.html#extract-and-evaluate",
+    "title": "Lab 6: Machine Learning in Hydrology",
+    "section": "Extract and Evaluate:",
+    "text": "Extract and Evaluate:\n\n# Build a workflow with the model:\nnn_wf &lt;- workflow() %&gt;%\n  add_model(nn_camel) %&gt;%\n  add_recipe(rec)\n\n# Fit the data to the model:\nnn_fit &lt;- fit(nn_wf, data = train_data)\n\n# Make predictions on the test data:\nlibrary(broom)\nnn_preds &lt;- augment(nn_fit, new_data = test_data)\n\n# Plot observed vs. predicted values\nggplot(nn_preds, aes(x = .pred, y = logQmean)) +\n  geom_point(aes(color = .pred), alpha = 0.7) +\n  geom_abline(slope = 1, intercept = 0, color = \"black\", linetype = \"dashed\") +\n  scale_color_viridis_c() +\n  labs(\n    title = \"Neural Network Model: Predicted vs. Observed logQmean\",\n    x = \"Predicted logQmean\",\n    y = \"Observed logQmean\",\n    color = \"Predicted\"\n  ) +\n  theme_minimal()\n\n\n\n\n\n\n\n\nThe predicted vs. observed logQmean plot above shows a fairly tight clustering of points around the 1:1 line, indicating that the neural network model is making accurate predictions on the test data. The color gradient helps illustrate and draw attention to where the predicted values fall. While there is some spread in the upper and lower tails, the overall pattern suggests that the model pretty accurately captures the main drivers of streamflow. I think these findings are supportive of choosing the neural network for modeling logQmean in this dataset."
+  }
+]
